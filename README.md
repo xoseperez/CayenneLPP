@@ -190,7 +190,7 @@ Example output:
 
 ### Method: `getTypeName`
 
-Returns a pointer to a cstring containing the name of the requested type.
+Returns a pointer to a C-string containing the name of the requested type.
 
 ```c
 const char * getTypeName(uint8_t type);
