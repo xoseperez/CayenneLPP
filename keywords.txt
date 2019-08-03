@@ -16,6 +16,8 @@ reset KEYWORD2
 getSize KEYWORD2
 *getBuffer KEYWORD2
 copy KEYWORD2
+setMode KEYWORD2
+setDelta KEYWORD2
 
 addDigitalInput KEYWORD2
 addDigitalOutput KEYWORD2
@@ -43,6 +45,7 @@ addDistance KEYWORD2
 addEnergy KEYWORD2
 addDirection KEYWORD2
 addSwitch KEYWORD2
+addGPSFull KEYWORD2
 
 #######################################
 # Constants (LITERAL1)

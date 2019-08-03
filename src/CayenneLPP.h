@@ -31,6 +31,7 @@
 #define LPP_UNIXTIME                    133   // 4 bytes, unsigned
 #define LPP_GYROMETER                   134   // 2 bytes per axis, 0.01 °/s
 #define LPP_GPS                         136   // 3 byte lon/lat 0.0001 °, 3 bytes alt 0.01 meter
+#define LPP_GPS_FULL                    136   // 3 byte lon/lat 0.0001 °, 3 bytes alt 0.01 meter
 #define LPP_SWITCH                      142   // 1 byte, 0/1
 
 // Only Data Size
@@ -57,6 +58,7 @@
 #define LPP_UNIXTIME_SIZE               4
 #define LPP_GYROMETER_SIZE              6
 #define LPP_GPS_SIZE                    9
+#define LPP_GPS_FULL_SIZE               10
 #define LPP_SWITCH_SIZE                 1
 
 // Multipliers
@@ -83,8 +85,14 @@
 #define LPP_UNIXTIME_MULT               1
 #define LPP_GYROMETER_MULT              100
 #define LPP_GPS_LAT_LON_MULT            10000
+#define LPP_GPS_FULL_LAT_LON_MULT       1000000
 #define LPP_GPS_ALT_MULT                100
+#define LPP_GPS_FULL_ALT_MULT           100
 #define LPP_SWITCH_MULT                 1
+
+#define LPP_MODE_DYNAMIC                0
+#define LPP_MODE_PACKED                 1
+#define LPP_MODE_HISTORY                2
 
 class CayenneLPP {
 
@@ -97,6 +105,9 @@ public:
   uint8_t getSize(void);
   uint8_t *getBuffer(void);
   uint8_t copy(uint8_t *buffer);
+
+  void setMode(uint8_t mode);
+  void setDelta(uint16_t seconds);
 
   // Original LPPv1 data types
   uint8_t addDigitalInput(uint8_t channel, uint8_t value);
@@ -127,6 +138,7 @@ public:
   uint8_t addEnergy(uint8_t channel, float value);
   uint8_t addDirection(uint8_t channel, float value);
   uint8_t addSwitch(uint8_t channel, uint8_t value);
+  uint8_t addGPSFull(uint8_t channel, float latitude, float longitude, float altitude);
 
 protected:
 
@@ -135,6 +147,9 @@ protected:
   uint8_t * _buffer;
   uint8_t _maxsize;
   uint8_t _cursor;
+  uint8_t _mode = LPP_MODE_DYNAMIC;
+  uint8_t _headersize = 2;
+  uint16_t _delta = 0;
 
 };
 

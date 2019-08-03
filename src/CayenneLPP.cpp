@@ -31,12 +31,26 @@ uint8_t CayenneLPP::copy(uint8_t *dst) {
   return _cursor;
 }
 
+void CayenneLPP::setMode(uint8_t mode) {
+  if (_mode != mode) {
+    _mode = mode;
+    if (LPP_MODE_PACKED  == _mode) _headersize = 1;
+    if (LPP_MODE_DYNAMIC == _mode) _headersize = 2;
+    if (LPP_MODE_HISTORY == _mode) _headersize = 3;
+  }
+  reset();
+}
+
+void CayenneLPP::setDelta(uint16_t seconds) {
+  _delta = seconds;
+}
+
 // ----------------------------------------------------------------------------
 
 template <typename T> uint8_t CayenneLPP::addValue(uint8_t channel, uint8_t type, T value, uint32_t multiplier, uint8_t size, bool is_signed) {
 
   // check buffer overflow
-  if ((_cursor + size + 2) > _maxsize) return 0;
+  if ((_cursor + size + _headersize) > _maxsize) return 0;
 
   // check sign  
   bool sign = value < 0;
@@ -53,8 +67,14 @@ template <typename T> uint8_t CayenneLPP::addValue(uint8_t channel, uint8_t type
   }
 
   // header
-  _buffer[_cursor++] = channel;
+  if (LPP_MODE_DYNAMIC == _mode) {
+    _buffer[_cursor++] = channel;
+  }
   _buffer[_cursor++] = type;
+  if (LPP_MODE_HISTORY == _mode) {
+    _buffer[_cursor++] = (_delta >> 8) & 0xFF;
+    _buffer[_cursor++] = _delta & 0xFF;
+  }
   
   // add bytes (MSB first)
   for (uint8_t i=1; i<=size; i++) {
@@ -156,14 +176,21 @@ uint8_t CayenneLPP::addSwitch(uint8_t channel, uint8_t value) {
 
 uint8_t CayenneLPP::addAccelerometer(uint8_t channel, float x, float y, float z) {
   
-  if ((_cursor + LPP_ACCELEROMETER_SIZE + 2) > _maxsize) return 0;
+  if ((_cursor + LPP_ACCELEROMETER_SIZE + _headersize) > _maxsize) return 0;
 
   int16_t vx = x * LPP_ACCELEROMETER_MULT;
   int16_t vy = y * LPP_ACCELEROMETER_MULT;
   int16_t vz = z * LPP_ACCELEROMETER_MULT;
 
-  _buffer[_cursor++] = channel;
+  if (LPP_MODE_DYNAMIC == _mode) {
+    _buffer[_cursor++] = channel;
+  }
   _buffer[_cursor++] = LPP_ACCELEROMETER;
+  if (LPP_MODE_HISTORY == _mode) {
+    _buffer[_cursor++] = (_delta >> 8) & 0xFF;
+    _buffer[_cursor++] = _delta & 0xFF;
+  }
+
   _buffer[_cursor++] = vx >> 8;
   _buffer[_cursor++] = vx;
   _buffer[_cursor++] = vy >> 8;
@@ -177,14 +204,21 @@ uint8_t CayenneLPP::addAccelerometer(uint8_t channel, float x, float y, float z)
 
 uint8_t CayenneLPP::addGyrometer(uint8_t channel, float x, float y, float z) {
 
-  if ((_cursor + LPP_GYROMETER_SIZE + 2) > _maxsize) return 0;
+  if ((_cursor + LPP_GYROMETER_SIZE + _headersize) > _maxsize) return 0;
 
   int16_t vx = x * LPP_GYROMETER_MULT;
   int16_t vy = y * LPP_GYROMETER_MULT;
   int16_t vz = z * LPP_GYROMETER_MULT;
 
-  _buffer[_cursor++] = channel;
+  if (LPP_MODE_DYNAMIC == _mode) {
+    _buffer[_cursor++] = channel;
+  }
   _buffer[_cursor++] = LPP_GYROMETER;
+  if (LPP_MODE_HISTORY == _mode) {
+    _buffer[_cursor++] = (_delta >> 8) & 0xFF;
+    _buffer[_cursor++] = _delta & 0xFF;
+  }
+
   _buffer[_cursor++] = vx >> 8;
   _buffer[_cursor++] = vx;
   _buffer[_cursor++] = vy >> 8;
@@ -198,14 +232,21 @@ uint8_t CayenneLPP::addGyrometer(uint8_t channel, float x, float y, float z) {
 
 uint8_t CayenneLPP::addGPS(uint8_t channel, float latitude, float longitude, float altitude) {
   
-  if ((_cursor + LPP_GPS_SIZE + 2) > _maxsize) return 0;
+  if ((_cursor + LPP_GPS_SIZE + _headersize) > _maxsize) return 0;
 
   int32_t lat = latitude * LPP_GPS_LAT_LON_MULT;
   int32_t lon = longitude * LPP_GPS_LAT_LON_MULT;
   int32_t alt = altitude * LPP_GPS_ALT_MULT;
 
-  _buffer[_cursor++] = channel;
+  if (LPP_MODE_DYNAMIC == _mode) {
+    _buffer[_cursor++] = channel;
+  }
   _buffer[_cursor++] = LPP_GPS;
+  if (LPP_MODE_HISTORY == _mode) {
+    _buffer[_cursor++] = (_delta >> 8) & 0xFF;
+    _buffer[_cursor++] = _delta & 0xFF;
+  }
+
   _buffer[_cursor++] = lat >> 16;
   _buffer[_cursor++] = lat >> 8;
   _buffer[_cursor++] = lat;
@@ -213,6 +254,31 @@ uint8_t CayenneLPP::addGPS(uint8_t channel, float latitude, float longitude, flo
   _buffer[_cursor++] = lon >> 8;
   _buffer[_cursor++] = lon;
   _buffer[_cursor++] = alt >> 16;
+  _buffer[_cursor++] = alt >> 8;
+  _buffer[_cursor++] = alt;
+
+  return _cursor;
+
+}
+
+uint8_t CayenneLPP::addGPSFull(uint8_t channel, float latitude, float longitude, float altitude) {
+  
+  if ((_cursor + LPP_GPS_FULL_SIZE + 1) > _maxsize) return 0;
+
+  int32_t lat = latitude * LPP_GPS_FULL_LAT_LON_MULT;
+  int32_t lon = longitude * LPP_GPS_FULL_LAT_LON_MULT;
+  int16_t alt = altitude * LPP_GPS_FULL_ALT_MULT;
+
+  _buffer[_cursor++] = channel;
+
+  _buffer[_cursor++] = lat >> 24;
+  _buffer[_cursor++] = lat >> 16;
+  _buffer[_cursor++] = lat >> 8;
+  _buffer[_cursor++] = lat;
+  _buffer[_cursor++] = lon >> 24;
+  _buffer[_cursor++] = lon >> 16;
+  _buffer[_cursor++] = lon >> 8;
+  _buffer[_cursor++] = lon;
   _buffer[_cursor++] = alt >> 8;
   _buffer[_cursor++] = alt;
 

@@ -59,7 +59,7 @@ class CustomTest: public TestOnce {
             PC_SERIAL.println();
             PC_SERIAL.print("Actual  : ");
             for (unsigned char i=0; i<lpp->getSize(); i++) {
-                snprintf(buff, sizeof(buff), "%02X ", actual[i]);
+                snprintf(buff, sizeof(buff), "%d ", actual[i]);
                 PC_SERIAL.print(buff);
             }
             PC_SERIAL.println();
@@ -83,6 +83,14 @@ testF(CustomTest, test_temperature_two_channels) {
     lpp->addTemperature(3, 27.2);
     lpp->addTemperature(5, 25.5);
     uint8_t expected[] = {0x03,0x67,0x01,0x10,0x05,0x67,0x00,0xFF};
+    compare(sizeof(expected), expected);
+}
+
+testF(CustomTest, test_temperature_two_channels_packed) {
+    lpp->setMode(LPP_MODE_PACKED);
+    lpp->addTemperature(3, 27.2);
+    lpp->addTemperature(5, 25.5);
+    uint8_t expected[] = {0x67,0x01,0x10,0x67,0x00,0xFF};
     compare(sizeof(expected), expected);
 }
 
@@ -148,6 +156,16 @@ testF(CustomTest, test_power) {
     compare(sizeof(expected), expected);
 }
 
+testF(CustomTest, test_power_history) {
+    lpp->setMode(LPP_MODE_HISTORY);
+    lpp->setDelta(60);
+    lpp->addPower(1, 200);
+    lpp->setDelta(0);
+    lpp->addPower(1, 250);
+    uint8_t expected[] = {0x80,0x00,0x3C,0x00,0xC8,0x80,0x00,0x00,0x00,0xFA};
+    compare(sizeof(expected), expected);
+}
+
 testF(CustomTest, test_power_limit) {
     lpp->addPower(1, 0xFFFF);
     uint8_t expected[] = {0x01,0x80,0xFF,0xFF};
@@ -172,6 +190,12 @@ testF(CustomTest, test_direction) {
     compare(sizeof(expected), expected);
 }
 
+testF(CustomTest, test_gps_full) {
+    lpp->addGPSFull(1, 42.351920, -87.909435, 10.30);
+    uint8_t expected[] = {0x01,0x02,0x86,0x3D,0x30,0xFA,0xC2,0x9B,0xC8,0x04,0x06};
+    compare(sizeof(expected), expected);
+}
+ 
 testF(CustomTest, test_gps) {
     lpp->addGPS(1, 42.3519, -87.9094, 10);
     uint8_t expected[] = {0x01,0x88,0x06,0x76,0x5e,0xf2,0x96,0x0a,0x00,0x03,0xe8};

@@ -38,9 +38,13 @@
 
 // lppDecode decodes an array of bytes into an array of ojects, 
 // each one with the channel, the data type and the value.
-function lppDecode(bytes) {
-    
+// Optionally it accepts de frame port as per LPPv2 alpha specs.
+// If you are using LPPv1 do not provide the port or use 1 as port value.
+// (see https://community.mydevices.com/t/cayenne-lpp-2-0/7510/1)
+function lppDecode(bytes, port) {
+
     var sensor_types = {
+    
         0  : {'size': 1, 'name': 'digital_input', 'signed': false, 'divisor': 1},
         1  : {'size': 1, 'name': 'digital_output', 'signed': false, 'divisor': 1},
         2  : {'size': 2, 'name': 'analog_input', 'signed': true , 'divisor': 100},
@@ -66,20 +70,24 @@ function lppDecode(bytes) {
         134: {'size': 6, 'name': 'gyrometer', 'signed': true , 'divisor': 100},
         136: {'size': 9, 'name': 'location', 'signed': true, 'divisor': [10000,10000,100]},
         142: {'size': 1, 'name': 'switch', 'signed': false, 'divisor': 1},
+
+        // 300 + (special cases)
+        436: {'size': 10, 'name': 'location', 'signed': true, 'divisor': [1000000,1000000,100]}, // special full scale GPS data
+    
     };
 
     function arrayToDecimal(stream, is_signed, divisor) {
 
         var value = 0;
+
         for (var i = 0; i < stream.length; i++) {
-            if (stream[i] > 0xFF)
-                throw 'Byte value overflow!';
+            if (stream[i] > 0xFF) throw 'Byte value overflow!';
             value = (value << 8) | stream[i];
         }
 
         if (is_signed) {
-            var edge = 1 << (stream.length) * 8;  // 0x1000..
-            var max = (edge - 1) >> 1;             // 0x0FFF.. >> 1
+            var edge = 1 << (stream.length) * 8;
+            var max = (edge - 1) >> 1;
             value = (value > max) ? value - edge : value;
         }
 
@@ -89,16 +97,38 @@ function lppDecode(bytes) {
 
     }
 
-    var sensors = [];
+    // port
+    port = (typeof port !== 'undefined') ? port : 1;
+
     var i = 0;
+    var index = 1;
+    var sensors = [];
 	while (i < bytes.length) {
 
-        var s_no   = bytes[i++];
-        var s_type = bytes[i++];
+        // Channel #
+        var s_no = 0;
+        if (port >= 100) {
+            s_no = port - 100;
+        } else if (2 == port) {
+            s_no = index;
+        } else {
+            s_no = bytes[i++];
+        }
+
+        // Value type (436 is a special value for full scale GPS)
+        var s_type = (3 == port) ? 436 : bytes[i++];
 		if (typeof sensor_types[s_type] == 'undefined') {
             throw 'Sensor type error!: ' + s_type;
         }
 
+        // Delta only in mode LPP_MODE_HISTORY (port >= 100)
+        var delta = 0;
+        if (port >= 100) {
+            delta = arrayToDecimal(bytes.slice(i, i+2), false, 1);
+            i+=2;
+        }
+
+        // Decode the data
         var s_value = 0;
         var type = sensor_types[s_type];
 	    switch (s_type) {
@@ -120,18 +150,31 @@ function lppDecode(bytes) {
                 };
                 break;
 
+            case 436:   // Full scale GPS Location
+                s_value = {
+                    'latitude': arrayToDecimal(bytes.slice(i+0, i+4), type.signed, type.divisor[0]),
+                    'longitude': arrayToDecimal(bytes.slice(i+4, i+8), type.signed, type.divisor[1]),
+                    'altitude': arrayToDecimal(bytes.slice(i+8, i+10), type.signed, type.divisor[2])
+                };
+                break;
+
             default:    // All the rest
                 s_value = arrayToDecimal(bytes.slice(i, i + type.size), type.signed, type.divisor);
                 break;
         }
         
-        sensors.push({
+        // Create the object
+        var point = {
             'channel': s_no,
             'type': type.name,
             'value': s_value
-        });
+        };
+        if (port >= 100) point['delta'] = delta;
+        sensors.push(point);
 
+        // Update indexes
         i += type.size;
+        index++;
 
 	}
 
@@ -147,8 +190,8 @@ function Decode(fPort, bytes) {
 */
 
 // To use with NodeRED
-// Assuming msg.payload contains the LPP-encoded byte array
+// Assuming msg.payload contains the LPP-encoded byte array and msg.port the LoRa frame port
 /*
-msg.fields = lppDecode(msg.payload);
+msg.fields = lppDecode(msg.payload, msg.port);
 return msg;
 */

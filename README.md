@@ -6,13 +6,74 @@ This is an Arduino Library for Arduino Compatible with Cayenne Low Power Payload
 
 CayenneLPP is a format designed by [myDevices](https://mydevices.com/about/) to integrate LoRaWan nodes into their IoT platform [Cayenne](https://mydevices.com/cayenne/features/). It is used to send sensor data in a packed way to [The Things Network platform](https://www.thethingsnetwork.org). You can read more on https://mydevices.com/cayenne/docs/lora/#lora-cayenne-low-power-payload
 
-## Description
+## LPP frame format
 
 CayenneLPP format is a quite well optimized way to send sensor data over low bit rate connection, like LoRa. You may find, probably, a better way for your specific project but CayenneLPP is a standarized and proven format that packs data in a suffiient way. It implements basic sensor types specified by [OMA SpecWorks](https://www.omaspecworks.org), formerly IPSO Alliance.
 
 It supports multichannel data, which means that you can use it on multisensor devices.
 
 This version of the library includes several IPSO data types not included in the original work by [Johan Stokking](https://github.com/TheThingsNetwork/arduino-device-lib) or most of the forks and side works by other people. In addition it includes fully backwards compatibly decoder in JavaScript, suitable for implementations with NodeRED or TTN, for instance.
+
+## LPP v2 support (partial)
+
+This library provides partial support for [LPP v2](https://community.mydevices.com/t/cayenne-lpp-2-0/7510/1). Frame formats are dettached from port so it can be used with other technologies apart from LoRa, so if you are using this library with a v2 decoder and LORa please manually follow these port:
+
+|Frame Port|Payload Format|Uplink|Downlink|Supported|
+|:-:|---|:-:|:-:|:-:|
+|1|Dynamic Sensor Payload|✓||✓|
+|2|Packed Sensor Payload|✓||✓|
+|3|Full scale GPS Payload|✓||✓|
+|4-9|Reserved||||
+|10|Actuator Commands||✓||
+|11|Device Period Configuration|✓|✓||
+|13|Sensor Period Configuration|✓|✓||
+|14|Sensor Enable Configuration|✓|✓||
+|15-99|Reserved||||
+|100-199|History Sensor Payload|✓||✓|
+|200-255|Reserved||||
+
+Default (v1 compatible) behaviour (specs section 4.1):
+
+```c
+    lpp.reset();
+    lpp.setMode(LPP_MODE_DYNAMIC); // this is the default value
+    lpp.addGPS(1, lat, lon, alt);
+    LMIC_setTxData2(1, lpp.getBuffer(), lpp.getSize(), 0); // LPPv2 specifies dynamic frames must be sent in port 1
+```
+
+Packed mode example (specs section 4.2):
+
+```c
+    lpp.setMode(LPP_MODE_PACKED); // setMode also resets buffer
+    lpp.addTemperature(0, 23.4); // channel is ignored in packed mode
+    lpp.addRelativeHumidity(0, 53);
+    LMIC_setTxData2(2, lpp.getBuffer(), lpp.getSize(), 0); // LPPv2 specifies packed frames must be sent in port 2
+```
+
+GPS full scale data example (specs section 4.3):
+
+```c
+    lpp.reset();
+    lpp.addGPSFull(1, lat, lon, alt); // does not require any special mode since this is a special frame
+    LMIC_setTxData2(3, lpp.getBuffer(), lpp.getSize(), 0); // LPPv2 specifies full scale GPS data must be sent in port 3
+```
+
+History mode example (specs section 4.4):
+
+```c
+    lpp.setMode(LPP_MODE_HISTORY); // setMode also resets buffer
+    lpp.setDelay(240); // 4 minutes ago
+    lpp.setPower(0, 234); // channel is ignored in history mode, actually decoded channel will be (port-100)
+    lpp.setDelay(180); // 3 minutes ago
+    lpp.setPower(0, 357);
+    lpp.setDelay(120); // 2 minutes ago
+    lpp.setPower(0, 490);
+    lpp.setDelay(60); // 1 minutes ago
+    lpp.setPower(0, 254);
+    lpp.setDelay(0); // just now
+    lpp.setPower(0, 217);
+    LMIC_setTxData2(101, lpp.getBuffer(), lpp.getSize(), 0); // LPPv2 specifies history frames must be sent in port 100+channel
+```
 
 ## API Reference
 
@@ -78,6 +139,25 @@ Copies the internal buffer to a specified buffer and returns the copied size.
 uint8_t copy(uint8_t *buffer);
 ```
 
+### Method: `setMode` (**LPPv2 feature**)
+
+Sets the current frame mode, possible values are:
+* LPP_MODE_DYNAMIC (default, v1 compatible)
+* LPP_MODE_PACKED
+* LPP_MODE_HISTORY
+
+```c
+void setMode(uint8_t mode);
+```
+
+### Method: `setDelta` (**LPPv2 feature**)
+
+Sets the delta in seconds for the fields that will be added from now on. Only when mode is LPP_MODE_HISTORY.
+
+```c
+void setDelta(uint16_t seconds);
+```
+
 ### Methods: `add...`
 
 Add data to the buffer. The `channel` parameter acts as a key for the data field. The data fields you send are dynamic; you can selectively send data as long as the channel matches.
@@ -109,13 +189,15 @@ uint8_t addDistance(uint8_t channel, float value); // in meters (3 decimals)
 uint8_t addEnergy(uint8_t channel, float value); // in kWh (3 decimals)
 uint8_t addDirection(uint8_t channel, float value); // in degrees
 uint8_t addSwitch(uint8_t channel, uint8_t value); // 0 or 1
+
+uint8_t addGPSFull(uint8_t channel, float latitude, float longitude, float altitude); // Special v2 entry point with 4bytes lat/long
 ```
 
 ## References
 
 * [Cayenne Low Power Payload](https://mydevices.com/cayenne/docs/#lora-cayenne-low-power-payload)
+* [Cayenne Low Power Payload v2](https://community.mydevices.com/t/cayenne-lpp-2-0/7510/1)
 * [IPSO data types](http://openmobilealliance.org/wp/OMNA/LwM2M/LwM2MRegistry.html#extlabel)
-* [API](API.md)
 
 ## License
 
