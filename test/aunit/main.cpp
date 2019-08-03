@@ -29,6 +29,8 @@ along with the rpnlib library.  If not, see <http://www.gnu.org/licenses/>.
 using namespace aunit;
 
 #define LPP_TEST_VERBOSE 0
+#define LPP_TEST_ENCODER 1
+#define LPP_TEST_DECODER 1
 
 // -----------------------------------------------------------------------------
 // Test class
@@ -92,11 +94,14 @@ class DecoderTest: public TestOnce {
             delete lpp;
         }
 
-        virtual void compare(uint8_t * buffer, unsigned char len, uint8_t fields, float value = 0, float precission = 0) {
+        virtual void compare(
+            uint8_t * buffer, unsigned char len, uint8_t port, 
+            uint8_t fields, uint8_t channel0 = 0, uint8_t type0 = 0,
+            float value0 = 0, float precission0 = 0) {
             
             StaticJsonDocument<512> jsonBuffer;
             JsonArray root = jsonBuffer.createNestedArray();    
-            assertEqual(fields, lpp->decode(buffer, len, root));
+            assertEqual(fields, lpp->decode(buffer, len, port, root));
             assertEqual(fields, (uint8_t) root.size());
 
             #if LPP_TEST_VERBOSE
@@ -105,9 +110,9 @@ class DecoderTest: public TestOnce {
                 PC_SERIAL.println();
             #endif
 
-            if (precission > 0) {
-                assertNear(value, root[0]["value"], precission);
-            }
+            if (channel0 > 0) assertEqual(channel0, root[0]["channel"]);
+            if (type0 > 0) assertEqual(type0, root[0]["type"]);
+            if (precission0 > 0) assertNear(value0, root[0]["value"], precission0);
 
         }
 
@@ -119,6 +124,8 @@ class DecoderTest: public TestOnce {
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
+
+#if LPP_TEST_ENCODER
 
 testF(EncoderTest, Multichannel) {
     lpp->addTemperature(3, 27.2);
@@ -249,35 +256,58 @@ testF(EncoderTest, Switch) {
     compare(sizeof(expected), expected);
 }
 
+#endif
+
+// -----------------------------------------------------------------------------
+
+#if LPP_TEST_DECODER
+
 testF(DecoderTest, Multichannel) {
     uint8_t buffer[] = {0x03,0x67,0x01,0x10,0x05,0x67,0x00,0xFF};
-    compare(buffer, sizeof(buffer), 2, 27.2, 0.01);
+    compare(buffer, sizeof(buffer), 1, 2, 3, LPP_TEMPERATURE, 27.2, 0.01);
+}
+
+testF(DecoderTest, Packed) {
+    uint8_t buffer[] = {0x67,0x01,0x10,0x67,0x00,0xFF};
+    compare(buffer, sizeof(buffer), 2, 2, 0, LPP_TEMPERATURE, 27.2, 0.01);
+}
+
+testF(DecoderTest, History) {
+    uint8_t buffer[] = {0x80,0x00,0x3C,0x00,0xC8,0x80,0x00,0x00,0x00,0xFA};
+    compare(buffer, sizeof(buffer), 101, 2, 1, LPP_POWER, 200, 0.01);
 }
 
 testF(DecoderTest, Negative_Temperature) {
     uint8_t buffer[] = {0x05,0x67,0xFF,0xD1}; 
-    compare(buffer, sizeof(buffer), 1, -4.7, 0.01);
+    compare(buffer, sizeof(buffer), 1, 1, 5, LPP_TEMPERATURE, -4.7, 0.01);
 }
 
 testF(DecoderTest, GPS) {
     uint8_t buffer[] = {0x01,0x88,0x06,0x76,0x5e,0xf2,0x96,0x0a,0x00,0x03,0xe8}; 
-    compare(buffer, sizeof(buffer), 1);
+    compare(buffer, sizeof(buffer), 1, 1, 1, LPP_GPS);
+}
+
+testF(DecoderTest, GPS_Full_Scale) {
+    uint8_t buffer[] = {0x02,0x02,0x86,0x3D,0x30,0xFA,0xC2,0x9B,0xC8,0x04,0x06}; 
+    compare(buffer, sizeof(buffer), 3, 1, 2, LPP_GPS);
 }
 
 testF(DecoderTest, Voltage) {
     uint8_t buffer[] = {0x03,0x74,0x57,0xB8}; 
-    compare(buffer, sizeof(buffer), 1, 224.56, 0.01);
+    compare(buffer, sizeof(buffer), 1, 1, 3, LPP_VOLTAGE, 224.56, 0.01);
 }
 
 testF(DecoderTest, Distance) {
     uint8_t buffer[] = {0x01,0x82,0x00,0x00,0x00,0x22}; 
-    compare(buffer, sizeof(buffer), 1, 0.034, 0.001);
+    compare(buffer, sizeof(buffer), 1, 1, 1, LPP_DISTANCE, 0.034, 0.001);
 }
 
 testF(DecoderTest, Frequency) {
     uint8_t buffer[] = {0x01,0x76,0x33,0xBe,0x27,0xA0};
-    compare(buffer, sizeof(buffer), 1, 868100000, 0.1);
+    compare(buffer, sizeof(buffer), 1, 1, 1, LPP_FREQUENCY, 868100000, 0.1);
 }
+
+#endif
 
 // -----------------------------------------------------------------------------
 // Main

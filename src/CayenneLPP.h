@@ -141,7 +141,7 @@ public:
 
   const char * getTypeName(uint8_t type);
 
-  uint8_t decode(uint8_t *buffer, uint8_t size, JsonArray& root);
+  uint8_t decode(uint8_t *buffer, uint8_t size, uint8_t port, JsonArray& root);
 
 protected:
 

@@ -165,8 +165,10 @@ void setDelta(uint16_t seconds);
 
 Decodes a byte array into a JsonArray (requires ArduinoJson library). The result is an array of objects, each one containing channel, type, type name and value. The value can be a scalar or an object (for accelerometer, gyroscope and GPS data). The method call returns the number of decoded fields or 0 if error.
 
+This method supports some (see above) LPPv2 features by using the port number. If using LPP v1 (the most common) set port to 1.
+
 ```c
-uint8_t decode(uint8_t *buffer, uint8_t size, JsonArray& root);
+uint8_t CayenneLPP::decode(uint8_t *buffer, uint8_t len, uint8_t port, JsonArray& root)
 ```
 
 Example output:

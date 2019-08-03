@@ -101,16 +101,18 @@ function lppDecode(bytes, port) {
     port = (typeof port !== 'undefined') ? port : 1;
 
     var i = 0;
-    var index = 1;
+    var count = 0;
     var sensors = [];
 	while (i < bytes.length) {
+
+        count++;
 
         // Channel #
         var s_no = 0;
         if (port >= 100) {
             s_no = port - 100;
         } else if (2 == port) {
-            s_no = index;
+            s_no = count;
         } else {
             s_no = bytes[i++];
         }
@@ -166,15 +168,15 @@ function lppDecode(bytes, port) {
         // Create the object
         var point = {
             'channel': s_no,
-            'type': type.name,
+            'type': s_type,
+            'name': type.name,
             'value': s_value
         };
         if (port >= 100) point['delta'] = delta;
         sensors.push(point);
 
-        // Update indexes
+        // Update index
         i += type.size;
-        index++;
 
 	}
 
