@@ -74,6 +74,9 @@ History mode example (specs section 4.4):
     lpp.setPower(0, 217);
     LMIC_setTxData2(101, lpp.getBuffer(), lpp.getSize(), 0); // LPPv2 specifies history frames must be sent in port 100+channel
 ```
+## Dependencies
+
+When using the decoder, you must install the [ArduinoJson 6.X](https://arduinojson.org/) library. You can find it in both the Arduino IDE and PlatformIO library managers.
 
 ## API Reference
 
@@ -156,6 +159,39 @@ Sets the delta in seconds for the fields that will be added from now on. Only wh
 
 ```c
 void setDelta(uint16_t seconds);
+```
+
+### Method: `decode`
+
+Decodes a byte array into a JsonArray (requires ArduinoJson library). The result is an array of objects, each one containing channel, type, type name and value. The value can be a scalar or an object (for accelerometer, gyroscope and GPS data). The method call returns the number of decoded fields or 0 if error.
+
+```c
+uint8_t decode(uint8_t *buffer, uint8_t size, JsonArray& root);
+```
+
+Example output:
+
+```
+[
+  {
+    "channel": 1,
+    "type": 136,
+    "name": "gps",
+    "value": {
+      "latitude": 42.3518,
+      "longitude": -87.9094,
+      "altitude": 10
+    }
+  }
+]
+```
+
+### Method: `getTypeName`
+
+Returns a pointer to a cstring containing the name of the requested type.
+
+```c
+const char * getTypeName(uint8_t type);
 ```
 
 ### Methods: `add...`
