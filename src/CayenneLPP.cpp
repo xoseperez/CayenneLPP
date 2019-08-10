@@ -47,6 +47,12 @@ void CayenneLPP::setDelta(uint16_t seconds) {
   _delta = seconds;
 }
 
+uint8_t CayenneLPP::getError() {
+  uint8_t error = _error;
+  _error = LPP_ERROR_OK;
+  return error;
+}
+
 // ----------------------------------------------------------------------------
 
 bool CayenneLPP::isType(uint8_t type) {
@@ -174,7 +180,10 @@ bool CayenneLPP::getTypeSigned(uint8_t type) {
 template <typename T> uint8_t CayenneLPP::addField(uint8_t type, uint8_t channel, T value) {
 
   // Check type
-  if (!isType(type)) return 0;
+  if (!isType(type)) {
+    _error = LPP_ERROR_UNKOWN_TYPE;
+    return 0;
+  }
 
   // Type definition
   uint8_t size = getTypeSize(type);
@@ -182,7 +191,10 @@ template <typename T> uint8_t CayenneLPP::addField(uint8_t type, uint8_t channel
   bool is_signed = getTypeSigned(type);
 
   // check buffer overflow
-  if ((_cursor + size + _headersize) > _maxsize) return 0;
+  if ((_cursor + size + _headersize) > _maxsize) {
+    _error = LPP_ERROR_OVERFLOW;
+    return 0;
+  }
 
   // check sign  
   bool sign = value < 0;
@@ -306,7 +318,11 @@ uint8_t CayenneLPP::addSwitch(uint8_t channel, uint32_t value) {
 
 uint8_t CayenneLPP::addAccelerometer(uint8_t channel, float x, float y, float z) {
   
-  if ((_cursor + LPP_ACCELEROMETER_SIZE + _headersize) > _maxsize) return 0;
+  // check buffer overflow
+  if ((_cursor + LPP_ACCELEROMETER_SIZE + _headersize) > _maxsize) {
+    _error = LPP_ERROR_OVERFLOW;
+    return 0;
+  }
 
   int16_t vx = x * LPP_ACCELEROMETER_MULT;
   int16_t vy = y * LPP_ACCELEROMETER_MULT;
@@ -334,7 +350,11 @@ uint8_t CayenneLPP::addAccelerometer(uint8_t channel, float x, float y, float z)
 
 uint8_t CayenneLPP::addGyrometer(uint8_t channel, float x, float y, float z) {
 
-  if ((_cursor + LPP_GYROMETER_SIZE + _headersize) > _maxsize) return 0;
+  // check buffer overflow
+  if ((_cursor + LPP_GYROMETER_SIZE + _headersize) > _maxsize) {
+    _error = LPP_ERROR_OVERFLOW;
+    return 0;
+  }
 
   int16_t vx = x * LPP_GYROMETER_MULT;
   int16_t vy = y * LPP_GYROMETER_MULT;
@@ -362,7 +382,11 @@ uint8_t CayenneLPP::addGyrometer(uint8_t channel, float x, float y, float z) {
 
 uint8_t CayenneLPP::addGPS(uint8_t channel, float latitude, float longitude, float altitude) {
   
-  if ((_cursor + LPP_GPS_SIZE + _headersize) > _maxsize) return 0;
+  // check buffer overflow
+  if ((_cursor + LPP_GPS_SIZE + _headersize) > _maxsize) {
+    _error = LPP_ERROR_OVERFLOW;
+    return 0;
+  }
 
   int32_t lat = latitude * LPP_GPS_LAT_LON_MULT;
   int32_t lon = longitude * LPP_GPS_LAT_LON_MULT;
@@ -393,7 +417,11 @@ uint8_t CayenneLPP::addGPS(uint8_t channel, float latitude, float longitude, flo
 
 uint8_t CayenneLPP::addGPSFull(uint8_t channel, float latitude, float longitude, float altitude) {
   
-  if ((_cursor + LPP_GPS_FULL_SIZE + 1) > _maxsize) return 0;
+  // check buffer overflow
+  if ((_cursor + LPP_GPS_FULL_SIZE + _headersize) > _maxsize) {
+    _error = LPP_ERROR_OVERFLOW;
+    return 0;
+  }
 
   int32_t lat = latitude * LPP_GPS_FULL_LAT_LON_MULT;
   int32_t lon = longitude * LPP_GPS_FULL_LAT_LON_MULT;
@@ -469,7 +497,10 @@ uint8_t CayenneLPP::decode(uint8_t *buffer, uint8_t len, uint8_t port, JsonArray
     } else {
       type = buffer[i++];
     }
-    if (!isType(type)) return 0;
+    if (!isType(type)) {
+      _error = LPP_ERROR_UNKOWN_TYPE;
+      return 0;
+    }
 
     // Type definition
     uint8_t size = (3 == port) ? 10 : getTypeSize(type);
@@ -477,7 +508,10 @@ uint8_t CayenneLPP::decode(uint8_t *buffer, uint8_t len, uint8_t port, JsonArray
     bool is_signed = getTypeSigned(type);
 
     // Check buffer size
-    if (i + size + extra > len) return 0;
+    if (i + size + extra > len) {
+      _error = LPP_ERROR_OVERFLOW;
+      return 0;
+    }
 
     // Init object
     JsonObject data = root.createNestedObject();

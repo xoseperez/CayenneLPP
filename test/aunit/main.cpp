@@ -41,7 +41,7 @@ class EncoderTest: public TestOnce {
     protected:
 
         virtual void setup() override {
-            lpp = new CayenneLPP(100);
+            lpp = new CayenneLPP(16);
             lpp->reset();
         }
 
@@ -150,6 +150,16 @@ testF(EncoderTest, History) {
     lpp->addPower(1, 250);
     uint8_t expected[] = {0x80,0x00,0x3C,0x00,0xC8,0x80,0x00,0x00,0x00,0xFA};
     compare(sizeof(expected), expected);
+}
+
+testF(EncoderTest, Overflow) {
+    assertEqual(4, lpp->addTemperature(1, 27.2));
+    assertEqual(8, lpp->addTemperature(1, 27.2));
+    assertEqual(12, lpp->addTemperature(1, 27.2));
+    assertEqual(16, lpp->addTemperature(1, 27.2));
+    assertEqual(LPP_ERROR_OK, lpp->getError());
+    assertEqual(0, lpp->addTemperature(1, 27.2));
+    assertEqual(LPP_ERROR_OVERFLOW, lpp->getError());
 }
 
 testF(EncoderTest, Reset) {
@@ -275,6 +285,20 @@ testF(DecoderTest, Packed) {
 testF(DecoderTest, History) {
     uint8_t buffer[] = {0x80,0x00,0x3C,0x00,0xC8,0x80,0x00,0x00,0x00,0xFA};
     compare(buffer, sizeof(buffer), 101, 2, 1, LPP_POWER, 200, 0.01);
+}
+
+testF(DecoderTest, UnknownType) {
+    uint8_t buffer[] = {0x03,0x24,0x01,0x10};
+    compare(buffer, sizeof(buffer), 1, 0);
+    assertEqual(LPP_ERROR_UNKOWN_TYPE, lpp->getError());
+    assertEqual(LPP_ERROR_OK, lpp->getError());
+}
+
+testF(DecoderTest, Overflow) {
+    uint8_t buffer[] = {0x05,0x67,0xFF}; 
+    compare(buffer, sizeof(buffer), 1, 0);
+    assertEqual(LPP_ERROR_OVERFLOW, lpp->getError());
+    assertEqual(LPP_ERROR_OK, lpp->getError());
 }
 
 testF(DecoderTest, Negative_Temperature) {
