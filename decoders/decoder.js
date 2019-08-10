@@ -103,7 +103,7 @@ function lppDecode(bytes, port) {
     var i = 0;
     var count = 0;
     var sensors = [];
-	while (i < bytes.length) {
+    while (i < bytes.length) {
 
         count++;
 
@@ -119,7 +119,7 @@ function lppDecode(bytes, port) {
 
         // Value type (436 is a special value for full scale GPS)
         var s_type = (3 == port) ? 436 : bytes[i++];
-		if (typeof sensor_types[s_type] == 'undefined') {
+        if (typeof sensor_types[s_type] == 'undefined') {
             throw 'Sensor type error!: ' + s_type;
         }
 
@@ -133,7 +133,7 @@ function lppDecode(bytes, port) {
         // Decode the data
         var s_value = 0;
         var type = sensor_types[s_type];
-	    switch (s_type) {
+        switch (s_type) {
 
             case 113:   // Accelerometer
             case 134:   // Gyrometer
@@ -178,18 +178,26 @@ function lppDecode(bytes, port) {
         // Update index
         i += type.size;
 
-	}
+    }
 
-	return sensors;
+    return sensors;
 
 }
 
 // To use with TTN
-/*
-function Decode(fPort, bytes) {
-    return lppDecode(bytes);
+function Decoder(bytes, fPort) {
+    
+    // flat output (like original decoder):
+    var response = {};
+    lppDecode(bytes, fPort).forEach(function(field) {
+        response[field['name'] + '_' + field['channel']] = field['value'];
+    });
+    return response;
+
+    // field output
+    //return {'fields': lppDecode(bytes, fPort)};
+
 }
-*/
 
 // To use with NodeRED
 // Assuming msg.payload contains the LPP-encoded byte array and msg.port the LoRa frame port
