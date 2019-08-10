@@ -44,6 +44,7 @@ addEnergy KEYWORD2
 addDirection KEYWORD2
 addSwitch KEYWORD2
 
+getError KEYWORD2
 getTypeName KEYWORD2
 decode KEYWORD2
 
