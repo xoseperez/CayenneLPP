@@ -18,6 +18,7 @@ CayenneLPP::~CayenneLPP(void) {
 
 void CayenneLPP::reset(void) {
   _cursor = 0;
+  _current_port = 0;
 }
 
 uint8_t CayenneLPP::getSize(void) {
@@ -45,6 +46,10 @@ void CayenneLPP::setMode(uint8_t mode) {
 
 void CayenneLPP::setDelta(uint16_t seconds) {
   _delta = seconds;
+}
+
+uint8_t CayenneLPP::getPort() {
+  return _current_port;
 }
 
 uint8_t CayenneLPP::getError() {
@@ -175,6 +180,20 @@ bool CayenneLPP::getTypeSigned(uint8_t type) {
   return false;
 }
 
+bool CayenneLPP::checkPort(uint8_t channel) {
+  uint8_t port = LPP_PORT_DYNAMIC;
+  if (LPP_MODE_PACKED == _mode) {
+    port = LPP_PORT_PACKED;
+  } else if (LPP_MODE_HISTORY == _mode) {
+    port = channel - LPP_PORT_HISTORY_BASE;
+  }
+  if ((_current_port != 0) && (_current_port != port)) {
+    return false;
+  }
+  _current_port = port;
+  return true;
+}
+
 // ----------------------------------------------------------------------------
 
 template <typename T> uint8_t CayenneLPP::addField(uint8_t type, uint8_t channel, T value) {
@@ -193,6 +212,12 @@ template <typename T> uint8_t CayenneLPP::addField(uint8_t type, uint8_t channel
   // check buffer overflow
   if ((_cursor + size + _headersize) > _maxsize) {
     _error = LPP_ERROR_OVERFLOW;
+    return 0;
+  }
+
+  // check port
+  if (!checkPort(channel)) {
+    _error = LPP_ERROR_MIXED_FRAME;
     return 0;
   }
 
@@ -324,6 +349,12 @@ uint8_t CayenneLPP::addAccelerometer(uint8_t channel, float x, float y, float z)
     return 0;
   }
 
+  // check port
+  if (!checkPort(channel)) {
+    _error = LPP_ERROR_MIXED_FRAME;
+    return 0;
+  }
+
   int16_t vx = x * LPP_ACCELEROMETER_MULT;
   int16_t vy = y * LPP_ACCELEROMETER_MULT;
   int16_t vz = z * LPP_ACCELEROMETER_MULT;
@@ -356,6 +387,12 @@ uint8_t CayenneLPP::addGyrometer(uint8_t channel, float x, float y, float z) {
     return 0;
   }
 
+  // check port
+  if (!checkPort(channel)) {
+    _error = LPP_ERROR_MIXED_FRAME;
+    return 0;
+  }
+
   int16_t vx = x * LPP_GYROMETER_MULT;
   int16_t vy = y * LPP_GYROMETER_MULT;
   int16_t vz = z * LPP_GYROMETER_MULT;
@@ -385,6 +422,12 @@ uint8_t CayenneLPP::addGPS(uint8_t channel, float latitude, float longitude, flo
   // check buffer overflow
   if ((_cursor + LPP_GPS_SIZE + _headersize) > _maxsize) {
     _error = LPP_ERROR_OVERFLOW;
+    return 0;
+  }
+
+  // check port
+  if (!checkPort(channel)) {
+    _error = LPP_ERROR_MIXED_FRAME;
     return 0;
   }
 
@@ -422,6 +465,13 @@ uint8_t CayenneLPP::addGPSFull(uint8_t channel, float latitude, float longitude,
     _error = LPP_ERROR_OVERFLOW;
     return 0;
   }
+
+  // check port
+  if ((_current_port != 0) && (_current_port != LPP_PORT_FULL_SCALE_GPS)) {
+    _error = LPP_ERROR_MIXED_FRAME;
+    return 0;
+  }
+  _current_port = LPP_PORT_FULL_SCALE_GPS;
 
   int32_t lat = latitude * LPP_GPS_FULL_LAT_LON_MULT;
   int32_t lon = longitude * LPP_GPS_FULL_LAT_LON_MULT;
@@ -488,7 +538,10 @@ uint8_t CayenneLPP::decode(uint8_t *buffer, uint8_t len, uint8_t port, JsonArray
     } else {
       channel = buffer[i++];
     }
-    if (i == len) return 0;
+    if (i == len) {
+      _error = LPP_ERROR_OVERFLOW;
+      return 0;
+    }
     
     // Get data type
     uint8_t type = 0;

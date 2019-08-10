@@ -95,9 +95,19 @@
 #define LPP_MODE_PACKED                 1
 #define LPP_MODE_HISTORY                2
 
+#define LPP_PORT_DYNAMIC                1
+#define LPP_PORT_PACKED                 2
+#define LPP_PORT_FULL_SCALE_GPS         3
+#define LPP_PORT_ACTUATOR               10
+#define LPP_PORT_DEVICE_PERIOD          11
+#define LPP_PORT_SENSOR_PERIOD          13
+#define LPP_PORT_SENSOR_ENABLE          14
+#define LPP_PORT_HISTORY_BASE           100
+
 #define LPP_ERROR_OK                    0
 #define LPP_ERROR_OVERFLOW              1
 #define LPP_ERROR_UNKOWN_TYPE           2
+#define LPP_ERROR_MIXED_FRAME           3
 
 class CayenneLPP {
 
@@ -115,6 +125,7 @@ public:
   // LPPv2 methods
   void setMode(uint8_t mode);
   void setDelta(uint16_t seconds);
+  uint8_t getPort();
   
   // Decoder methods
   const char * getTypeName(uint8_t type);
@@ -158,12 +169,14 @@ protected:
 
   float getValue(uint8_t * buffer, uint8_t size, uint32_t multiplier, bool is_signed);
   template <typename T> uint8_t addField(uint8_t type, uint8_t channel, T value);
+  bool checkPort(uint8_t channel);
 
   uint8_t * _buffer;
   uint8_t _maxsize;
   uint8_t _cursor;
   uint8_t _mode = LPP_MODE_DYNAMIC;
   uint8_t _headersize = 2;
+  uint8_t _current_port = 0;
   uint16_t _delta = 0;
   uint8_t _error = LPP_ERROR_OK;
 

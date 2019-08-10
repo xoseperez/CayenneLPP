@@ -161,6 +161,14 @@ Sets the delta in seconds for the fields that will be added from now on. Only wh
 void setDelta(uint16_t seconds);
 ```
 
+### Method: `getPort` (**LPPv2 feature**)
+
+Returns the LoRa port you should be sending the data buffer to based on the type of data fields you have added.
+
+```c
+uint8_t getPort();
+```
+
 ### Method: `decode`
 
 Decodes a byte array into a JsonArray (requires ArduinoJson library). The result is an array of objects, each one containing channel, type, type name and value. The value can be a scalar or an object (for accelerometer, gyroscope and GPS data). The method call returns the number of decoded fields or 0 if error.
@@ -168,7 +176,7 @@ Decodes a byte array into a JsonArray (requires ArduinoJson library). The result
 This method supports some (see above) LPPv2 features by using the port number. If using LPP v1 (the most common) set port to 1.
 
 ```c
-uint8_t CayenneLPP::decode(uint8_t *buffer, uint8_t len, uint8_t port, JsonArray& root)
+uint8_t decode(uint8_t *buffer, uint8_t len, uint8_t port, JsonArray& root)
 ```
 
 Example output:
@@ -238,6 +246,7 @@ Returns the last error ID, once returned the error is reset to OK. Possible erro
 * `LPP_ERROR_OK`: no error
 * `LPP_ERROR_OVERFLOW`: When encoding, the latest field would have exceeded the internal buffer size. Try increasing the buffer size in the constructor. When decoding, the payload is not long enough to hold the expected data. Probably a size mismatch.
 * `LPP_ERROR_UNKNOWN_TYPE`: When decoding, the decoded type does not match any of the supported ones.
+* `LPP_ERROR_MIXED_FRAME`: When encoding, you have tried to add a field that is not copatible with the previously added fields. For instance, you cannot add different channels when in LPP_MODE_HISTORY, or you cannot add full scale GPS data when there is already other fields in the buffer.
 
 ```c
 uint8_t getError(void);
