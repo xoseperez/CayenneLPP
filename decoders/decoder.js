@@ -28,11 +28,14 @@
  *  Frequency           3318    118     76      4           1 Hz Unsigned MSB
  *  Percentage          3320    120     78      1           1% Unsigned
  *  Altitude            3321    121     79      2           1m Signed MSB
+ *  Concentration       3325    125     7D      2           1 PPM unsigned : 1pmm = 1 * 10 ^-6 = 0.000 001
  *  Power               3328    128     80      2           1 W Unsigned MSB
  *  Distance            3330    130     82      4           0.001m Unsigned MSB
  *  Energy              3331    131     83      4           0.001kWh Unsigned MSB
+ *  Colour              3335    135     87      3           R: 255 G: 255 B: 255
  *  Direction           3332    132     84      2           1º Unsigned MSB
  *  Switch              3342    142     8E      1           0/1
+
  * 
  */
 
@@ -41,11 +44,10 @@
 function lppDecode(bytes) {
     
     var sensor_types = {
-        0  : {'size': 1, 'name': 'digital_input', 'signed': false, 'divisor': 1},
-        1  : {'size': 1, 'name': 'digital_output', 'signed': false, 'divisor': 1},
-        2  : {'size': 2, 'name': 'analog_input', 'signed': true , 'divisor': 100},
-        3  : {'size': 2, 'name': 'analog_output', 'signed': true , 'divisor': 100},
-        4  : {'size': 2, 'name': 'counter', 'signed': false, 'divisor': 1},
+        0  : {'size': 1, 'name': 'digital_in', 'signed': false, 'divisor': 1},
+        1  : {'size': 1, 'name': 'digital_out', 'signed': false, 'divisor': 1},
+        2  : {'size': 2, 'name': 'analog_in', 'signed': true , 'divisor': 100},
+        3  : {'size': 2, 'name': 'analog_out', 'signed': true , 'divisor': 100},
         100: {'size': 4, 'name': 'generic', 'signed': false, 'divisor': 1},
         101: {'size': 2, 'name': 'illuminance', 'signed': false, 'divisor': 1},
         102: {'size': 1, 'name': 'presence', 'signed': false, 'divisor': 1},
@@ -58,13 +60,15 @@ function lppDecode(bytes) {
         118: {'size': 4, 'name': 'frequency', 'signed': false, 'divisor': 1},
         120: {'size': 1, 'name': 'percentage', 'signed': false, 'divisor': 1},
         121: {'size': 2, 'name': 'altitude', 'signed': true, 'divisor': 1},
+		125: {'size': 2, 'name': 'concentration', 'signed': false, 'divisor': 1},
         128: {'size': 2, 'name': 'power', 'signed': false, 'divisor': 1},
         130: {'size': 4, 'name': 'distance', 'signed': false, 'divisor': 1000},
         131: {'size': 4, 'name': 'energy', 'signed': false, 'divisor': 1000},
-        132: {'size': 1, 'name': 'direction', 'signed': false, 'divisor': 1},
+        132: {'size': 2, 'name': 'direction', 'signed': false, 'divisor': 1},
         133: {'size': 4, 'name': 'time', 'signed': false, 'divisor': 1},
         134: {'size': 6, 'name': 'gyrometer', 'signed': true , 'divisor': 100},
-        136: {'size': 9, 'name': 'location', 'signed': true, 'divisor': [10000,10000,100]},
+		135: {'size': 3, 'name': 'colour', 'signed': false, 'divisor': 1},
+        136: {'size': 9, 'name': 'gps', 'signed': true, 'divisor': [10000,10000,100]},
         142: {'size': 1, 'name': 'switch', 'signed': false, 'divisor': 1},
     };
 
@@ -119,6 +123,13 @@ function lppDecode(bytes) {
                     'altitude': arrayToDecimal(bytes.slice(i+6, i+9), type.signed, type.divisor[2])
                 };
                 break;
+			case 135:   // Colour
+				s_value = {
+                    'r': arrayToDecimal(bytes.slice(i+0, i+1), type.signed, type.divisor),
+                    'g': arrayToDecimal(bytes.slice(i+1, i+2), type.signed, type.divisor),
+                    'b': arrayToDecimal(bytes.slice(i+2, i+3), type.signed, type.divisor)
+                };
+                break;
 
             default:    // All the rest
                 s_value = arrayToDecimal(bytes.slice(i, i + type.size), type.signed, type.divisor);
@@ -141,14 +152,19 @@ function lppDecode(bytes) {
 }
 
 // To use with TTN
-function Decoder(bytes, fPort) {
-    
+function decodeUplink(input) {
+
+    bytes = input.bytes;
+    fPort = input.fPort;
+
     // flat output (like original decoder):
     var response = {};
     lppDecode(bytes, 1).forEach(function(field) {
         response[field['name'] + '_' + field['channel']] = field['value'];
     });
-    return response;
+    return {
+￼      data: response
+￼   };
 
     // field output
     //return {'fields': lppDecode(bytes, fPort)};
