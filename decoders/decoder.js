@@ -35,6 +35,7 @@
  *  Colour              3335    135     87      3           R: 255 G: 255 B: 255
  *  Direction           3332    132     84      2           1º Unsigned MSB
  *  Switch              3342    142     8E      1           0/1
+ *  Tilt                        200     C8      9           0.00001 G Signed MSB per axis
 
  * 
  */
@@ -70,6 +71,7 @@ function lppDecode(bytes) {
 		135: {'size': 3, 'name': 'colour', 'signed': false, 'divisor': 1},
         136: {'size': 9, 'name': 'gps', 'signed': true, 'divisor': [10000,10000,100]},
         142: {'size': 1, 'name': 'switch', 'signed': false, 'divisor': 1},
+        200: {'size': 9, 'name': 'tilt', 'signed': true , 'divisor': 10000},
     };
 
     function arrayToDecimal(stream, is_signed, divisor) {
@@ -116,6 +118,14 @@ function lppDecode(bytes) {
                 };
                 break;
             
+            case 200:   // Tilt
+                s_value = {
+                    'x': arrayToDecimal(bytes.slice(i+0, i+3), type.signed, type.divisor),
+                    'y': arrayToDecimal(bytes.slice(i+3, i+6), type.signed, type.divisor),
+                    'z': arrayToDecimal(bytes.slice(i+6, i+9), type.signed, type.divisor)
+                };
+                break;
+            
             case 136:   // GPS Location
                 s_value = {
                     'latitude': arrayToDecimal(bytes.slice(i+0, i+3), type.signed, type.divisor[0]),
@@ -151,7 +161,7 @@ function lppDecode(bytes) {
 
 }
 
-// To use with TTN
+// To use with TTSv3
 function decodeUplink(input) {
 
     bytes = input.bytes;
@@ -162,14 +172,32 @@ function decodeUplink(input) {
     lppDecode(bytes, 1).forEach(function(field) {
         response[field['name'] + '_' + field['channel']] = field['value'];
     });
+    
     return {
-￼      data: response
-￼   };
-
+        data: response,
+        warnings: [],
+        errors: []
+    };
+  
     // field output
     //return {'fields': lppDecode(bytes, fPort)};
 
 }
+
+// To use with TTNv2
+//function Decoder(bytes, fPort) {
+//    
+//    // flat output (like original decoder):
+//    var response = {};
+//    lppDecode(bytes, 1).forEach(function(field) {
+//        response[field['name'] + '_' + field['channel']] = field['value'];
+//    });
+//    return response;
+//
+//    // field output
+//    //return {'fields': lppDecode(bytes, fPort)};
+//
+//}
 
 // To use with NodeRED
 // Assuming msg.payload contains the LPP-encoded byte array

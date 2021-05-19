@@ -122,6 +122,9 @@ bool CayenneLPP::isType(uint8_t type) {
 #ifndef CAYENNE_DISABLE_COLOUR
     case LPP_COLOUR:
 #endif
+#ifndef CAYENNE_DISABLE_TILT
+    case LPP_TILT:
+#endif
       return true;
   }
 
@@ -260,6 +263,11 @@ const char * CayenneLPP::getTypeName(uint8_t type) {
 #ifndef CAYENNE_DISABLE_COLOUR
         case LPP_COLOUR:
           return "colour";
+#endif
+
+#ifndef CAYENNE_DISABLE_TILT
+        case LPP_TILT:
+          return "tilt";
 #endif
 
         default:
@@ -402,6 +410,11 @@ uint8_t CayenneLPP::getTypeSize(uint8_t type) {
       return LPP_COLOUR_SIZE;
 #endif
 
+#ifndef CAYENNE_DISABLE_TILT
+    case LPP_TILT:
+      return LPP_TILT_SIZE;
+#endif
+
     default:
       return 0;
   }
@@ -536,6 +549,11 @@ uint32_t CayenneLPP::getTypeMultiplier(uint8_t type) {
       return LPP_COLOUR_MULT;
 #endif
 
+#ifndef CAYENNE_DISABLE_TILT
+    case LPP_TILT:
+      return LPP_TILT_MULT;
+#endif
+
     default:
       return 0;
   }
@@ -565,6 +583,9 @@ bool CayenneLPP::getTypeSigned(uint8_t type) {
 #endif
 #ifndef CAYENNE_DISABLE_GPS
     case LPP_GPS:
+#endif
+#ifndef CAYENNE_DISABLE_TILT
+    case LPP_TILT:
 #endif
       return true;
   }
@@ -826,6 +847,36 @@ uint8_t CayenneLPP::addGyrometer(uint8_t channel, float x, float y, float z) {
 }
 #endif
 
+#ifndef CAYENNE_DISABLE_TILT
+uint8_t CayenneLPP::addTilt(uint8_t channel, float x, float y, float z) {
+
+  // check buffer overflow
+  if ((_cursor + LPP_TILT_SIZE + 2) > _maxsize) {
+    _error = LPP_ERROR_OVERFLOW;
+    return 0;
+  }
+
+  int32_t vx = x * LPP_TILT_MULT;
+  int32_t vy = y * LPP_TILT_MULT;
+  int32_t vz = z * LPP_TILT_MULT;
+
+  _buffer[_cursor++] = channel;
+  _buffer[_cursor++] = LPP_TILT;
+  _buffer[_cursor++] = vx >> 16;
+  _buffer[_cursor++] = vx >> 8;
+  _buffer[_cursor++] = vx;
+  _buffer[_cursor++] = vy >> 16;
+  _buffer[_cursor++] = vy >> 8;
+  _buffer[_cursor++] = vy;
+  _buffer[_cursor++] = vz >> 16;
+  _buffer[_cursor++] = vz >> 8;
+  _buffer[_cursor++] = vz;
+
+  return _cursor;
+
+}
+#endif
+
 #ifndef CAYENNE_DISABLE_GPS
 uint8_t CayenneLPP::addGPS(uint8_t channel, float latitude, float longitude, float altitude) {
 
@@ -954,6 +1005,14 @@ uint8_t CayenneLPP::decode(uint8_t *buffer, uint8_t len, JsonArray& root) {
       object["z"] = getValue(&buffer[index+4], 2, multiplier, is_signed);
     }
 #endif
+#ifndef CAYENNE_DISABLE_TILT
+	else if (LPP_TILT == type) {
+      JsonObject object = data.createNestedObject("value");
+      object["x"] = getValue(&buffer[index], 3, multiplier, is_signed);
+      object["y"] = getValue(&buffer[index+3], 3, multiplier, is_signed);
+      object["z"] = getValue(&buffer[index+6], 3, multiplier, is_signed);
+    }
+#endif
 #ifndef CAYENNE_DISABLE_GPS
 	else if (LPP_GPS == type) {
       JsonObject object = data.createNestedObject("value");
@@ -1046,6 +1105,16 @@ uint8_t CayenneLPP::decodeTTN(uint8_t *buffer, uint8_t len, JsonObject& root) {
       object["x"] = getValue(&buffer[index], 2, multiplier, is_signed);
       object["y"] = getValue(&buffer[index+2], 2, multiplier, is_signed);
       object["z"] = getValue(&buffer[index+4], 2, multiplier, is_signed);
+
+    }
+#endif
+#ifndef CAYENNE_DISABLE_TILT
+	else if (LPP_TILT == type) {
+
+      JsonObject object = root.createNestedObject(name);
+      object["x"] = getValue(&buffer[index], 3, multiplier, is_signed);
+      object["y"] = getValue(&buffer[index+3], 3, multiplier, is_signed);
+      object["z"] = getValue(&buffer[index+6], 3, multiplier, is_signed);
 
     }
 #endif
